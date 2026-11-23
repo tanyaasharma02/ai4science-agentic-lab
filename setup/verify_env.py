@@ -53,15 +53,20 @@ if use_vertex:
         r = subprocess.run(["gcloud", "services", "list", "--enabled", "--project", proj,
                             "--filter=name:aiplatform.googleapis.com", "--format=value(name)"],
                            capture_output=True, text=True)
-        check("Vertex AI API enabled", "aiplatform" in r.stdout,
-              f"gcloud services enable aiplatform.googleapis.com --project {proj}")
+        if r.returncode != 0:
+            print(f"\u2139\ufe0f  could not query enabled APIs via gcloud (not logged in?) - relying on the live call below")
+        elif "aiplatform" not in r.stdout:
+            print(f"\u26a0\ufe0f  Vertex AI API not listed as enabled - if the live call below fails, run:\n"
+                  f"     gcloud services enable aiplatform.googleapis.com --project {proj}")
+        else:
+            check("Vertex AI API enabled", True)
 elif api_key:
     check("GOOGLE_API_KEY set (AI Studio mode)", True)
 else:
     check("credentials", False, "copy .env.example to .env and fill in Vertex AI project, or set GOOGLE_API_KEY")
 
-# 4. Live model call (the real test)
-if problems == 0:
+# 4. Live model call (the real test) - run whenever credentials are configured
+if use_vertex or api_key:
     try:
         from google import genai
         client = genai.Client()
