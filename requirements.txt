@@ -1,0 +1,6 @@
+google-adk>=1.10,<3
+google-genai>=1.30
+numpy
+matplotlib
+pillow
+python-dotenv
