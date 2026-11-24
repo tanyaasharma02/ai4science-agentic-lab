@@ -65,14 +65,49 @@ elif api_key:
 else:
     check("credentials", False, "copy .env.example to .env and fill in Vertex AI project, or set GOOGLE_API_KEY")
 
-# 4. Live model call (the real test) - run whenever credentials are configured
+# 4. Live model call (the real test) - run whenever credentials are configured.
+#    Model availability differs per project / region / account age (e.g. new
+#    accounts may not get gemini-2.5-*), so if the configured model fails we
+#    probe a short fallback list and print the exact .env line to use.
+FALLBACK_MODELS = ["gemini-3-flash-preview", "gemini-2.5-flash", "gemini-3-pro-preview", "gemini-2.5-pro"]
+
+
+def _ping(client, model: str) -> tuple[bool, str]:
+    try:
+        r = client.models.generate_content(model=model, contents="Reply with the single word: ready")
+        return "ready" in (r.text or "").lower(), (r.text or "").strip()
+    except Exception as e:  # noqa: BLE001
+        return False, f"{type(e).__name__}: {str(e)[:160]}"
+
+
 if use_vertex or api_key:
     try:
         from google import genai
         client = genai.Client()
-        r = client.models.generate_content(model=os.getenv("LAB_FAST_MODEL", "gemini-2.5-flash"),
-                                           contents="Reply with the single word: ready")
-        check(f"Gemini call -> {r.text.strip()!r}", "ready" in r.text.lower(), "check project/location/quota")
+        fast = os.getenv("LAB_FAST_MODEL", "gemini-2.5-flash")
+        strong = os.getenv("LAB_STRONG_MODEL", "gemini-3-flash-preview")
+        ok, info = _ping(client, fast)
+        if ok:
+            check(f"Gemini call ({fast}) -> {info!r}", True)
+        else:
+            print(f"\u26a0\ufe0f  LAB_FAST_MODEL={fast} failed: {info}")
+            working = [m for m in FALLBACK_MODELS if m != fast and _ping(client, m)[0]]
+            if working:
+                check(f"Gemini call ({working[0]})", True)
+                print(f"\u2139\ufe0f  {fast} is not available on this project/account. Add this line to your .env and re-run:\n"
+                      f"     LAB_FAST_MODEL={working[0]}\n"
+                      f"     (models that answered here: {', '.join(working)})")
+                if strong not in working:
+                    print(f"     LAB_STRONG_MODEL={working[-1] if len(working) > 1 else working[0]}")
+            else:
+                check("Gemini call", False,
+                      "none of the known models answered - check project ID, GOOGLE_CLOUD_LOCATION=global, "
+                      "that the Vertex AI API is enabled, and that your account has roles/aiplatform.user")
+        if ok and strong != fast:
+            s_ok, s_info = _ping(client, strong)
+            if not s_ok:
+                print(f"\u26a0\ufe0f  LAB_STRONG_MODEL={strong} failed: {s_info}\n"
+                      f"     module 03/04 use it for the critic - set LAB_STRONG_MODEL={fast} in .env if this persists")
     except Exception as e:  # noqa: BLE001
         check("Gemini call", False, f"{type(e).__name__}: {str(e)[:200]}")
 

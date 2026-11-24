@@ -14,6 +14,8 @@ hypothesis agent  ->  experiment agent  ->  critic agent  ->  (loop)  ->  human 
 
 Everything runs against **Vertex AI** with your Cloud Credits. No datasets to download.
 
+**Session recording (24 Nov 2026):** [video](https://drive.google.com/file/d/1cooYGMUfUua1X4e0xs1YIlOy9kJnBMH7/view) · [notes + transcript](https://docs.google.com/document/d/18W6xm5ovlbuymGx0EaF9Dmb85vqqIFxC5iRhlZvsTjg/edit) *(accelerator participants)*
+
 ---
 
 ## 0. Setup (do this BEFORE the session, ~5 min)
@@ -94,7 +96,7 @@ A deployed service has no terminal, so the lab's `input()` gate is replaced by `
 
 | Symptom | Fix |
 |---|---|
-| `404 model not found` | Wrong `GOOGLE_CLOUD_LOCATION`; try `us-central1` or `global`. |
+| `404 model not found` / model "not available" for your account | Model availability differs per project, region and account age (new accounts may not get `gemini-2.5-*`). Run `python setup/verify_env.py` - it probes the alternatives and prints the exact `LAB_FAST_MODEL=` / `LAB_STRONG_MODEL=` lines for your `.env`. Also try `GOOGLE_CLOUD_LOCATION=global`. |
 | `403 PERMISSION_DENIED aiplatform` | `gcloud services enable aiplatform.googleapis.com`; check billing / credits attached. |
 | `Missing env vars` | `.env` not in the repo root, or run from another directory. |
 | Agent never calls the tool | Read the docstring the model sees - make the "when to use" sentence explicit. |
