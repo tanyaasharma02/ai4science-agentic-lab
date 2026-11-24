@@ -115,16 +115,25 @@ def run(agent, prompt: str, **kw) -> str:
 
 
 def chat(agent) -> None:
-    """Interactive loop (used in module 04 to play with the HITL gate)."""
+    """Interactive loop (used in module 04 to play with the HITL gate).
+
+    One event loop for the whole session: calling asyncio.run() per prompt
+    would close the loop between turns and the Gemini client's async HTTP
+    connections would then fail to close ("Event loop is closed" tracebacks).
+    """
     check_config()
     session_id = str(uuid.uuid4())[:8]
     print("Type a message (or 'q' to quit).")
-    while True:
-        try:
-            prompt = input("you> ").strip()
-        except (EOFError, KeyboardInterrupt):
-            break
-        if prompt.lower() in ("q", "quit", "exit"):
-            break
-        if prompt:
-            asyncio.run(_run(agent, prompt, session_id=session_id))
+
+    async def _loop():
+        while True:
+            try:
+                prompt = (await asyncio.to_thread(input, "you> ")).strip()
+            except (EOFError, KeyboardInterrupt):
+                break
+            if prompt.lower() in ("q", "quit", "exit"):
+                break
+            if prompt:
+                await _run(agent, prompt, session_id=session_id)
+
+    asyncio.run(_loop())
